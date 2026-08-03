@@ -153,7 +153,7 @@
   }
   .canvas{
     position:relative;
-    width:1150px; max-width:none;
+    width:min(1150px,100%); max-width:100%;
   }
   .canvas svg.connectors{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 
@@ -352,7 +352,9 @@ const NODES = {
   fields:     {phase:1, x:560, y:404, type:'decision', title:'Required Custom Fields Available?', tag:'CRM field check', w:230,h:96,
                info:'Checks whether the CRM record already holds the fields the workflow needs to proceed.'},
   populate:   {phase:1, x:900, y:404, type:'process', title:'Populate Missing Fields', tag:'Auto-enrichment', w:210,h:64,
-               info:'Missing fields are filled automatically, then the record is re-checked before continuing.'},
+               info:'Missing fields are filled automatically before the conversation is queued.'},
+  redirect:   {phase:1, x:900, y:548, type:'terminal', title:'Redirect to Target', tag:'Routing', w:210,h:64,
+               info:'Conversation is redirected to the target workflow.'},
   queue:      {phase:1, x:560, y:548, type:'process', title:'Add Conversation to Queue', tag:'Ready for scheduling', w:210,h:64,
                info:'A fully validated, fully populated conversation is added to the scheduling queue.'},
 
@@ -385,8 +387,9 @@ const EDGES = [
   {id:'e3', from:'official',to:'endprocess',type:'no', label:'No', path:1},
   {id:'e4', from:'official',to:'fields',   type:'yes', label:'Yes', path:1},
   {id:'e5', from:'fields', to:'populate',  type:'no', label:'No', path:1},
-  {id:'e6', from:'populate',to:'fields',   type:'neutral', path:1, note:'loop'},
-  {id:'e7', from:'fields', to:'queue',     type:'yes', label:'Yes', path:1},
+  {id:'e6', from:'populate',to:'queue',   type:'neutral', path:1},
+  {id:'e7', from:'fields', to:'redirect',     type:'yes', label:'Yes', path:1},
+  {id:'e7b', from:'queue', to:'redirect', type:'neutral', path:1},
 
   {id:'e8', from:'uid', to:'retrieve', type:'yes', label:'Yes', path:2, style:'elbowL'},
   {id:'e9', from:'uid', to:'continue', type:'no', label:'No', path:2, style:'elbowR'},
@@ -535,9 +538,9 @@ document.getElementById('drawerClose').addEventListener('click', ()=>{
 
 /* ---------------------- Scenario playback ---------------------- */
 const SCENARIOS = {
-  verified: ['start','e1','inbound','e2','official','e4','fields','e7','queue','uid','e8','retrieve','e10','update','e12','retro','e16','end'],
+  verified: ['start','e1','inbound','e2','official','e4','fields','e7','redirect','uid','e8','retrieve','e10','update','e12','retro','e16','end'],
   rejected: ['start','e1','inbound','e2','official','e3','endprocess'],
-  missing:  ['start','e1','inbound','e2','official','e4','fields','e5','populate','e6','fields','e7','queue'],
+  missing:  ['start','e1','inbound','e2','official','e4','fields','e5','populate','e6','queue','e7b','redirect'],
   monitoring: ['start','e1','inbound','e2','official','e4','fields','e7','queue','uid','e9','continue','e11','expired','e13','loop','e15','continue','e11','expired','e14','stop','e17','end'],
 };
 
@@ -635,3 +638,11 @@ if(!reduceMotion){
 </script>
 </body>
 </html>
+
+<style>
+@media (max-width:1200px){
+.canvas{transform:scale(calc(100vw/1200));transform-origin:top left;height:auto;}
+.platform{overflow:auto;}
+}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+</style>
