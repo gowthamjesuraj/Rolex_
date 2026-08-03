@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inbound Message Automation — Workflow Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#08080a;
+    --bg-1:#0e0e12;
+    --panel:#151318;
+    --panel-2:#1b1820;
+    --hairline:rgba(214,187,132,0.14);
+    --gold:#c9a768;
+    --gold-bright:#e9cf97;
+    --ivory:#eee9df;
+    --muted:#8d8a83;
+    --muted-2:#5c5952;
+    --yes:#5f9c85;
+    --yes-bright:#8fc7ae;
+    --no:#a8654a;
+    --no-bright:#d18a6b;
+    --shadow-deep: 0 40px 80px -30px rgba(0,0,0,0.7);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--ivory);font-family:'Inter',sans-serif;overflow-x:hidden;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 700px at 15% -10%, rgba(201,167,104,0.10), transparent 60%),
+      radial-gradient(900px 600px at 100% 10%, rgba(95,156,133,0.06), transparent 60%),
+      linear-gradient(180deg, var(--bg-0), #050506 70%);
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding:56px 6vw 28px;
+    display:flex; flex-direction:column; gap:6px;
+    border-bottom:1px solid var(--hairline);
+    position:relative;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px; letter-spacing:0.22em; text-transform:uppercase;
+    color:var(--gold); opacity:0.85;
+  }
+  h1{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600; font-style:italic;
+    font-size:clamp(30px, 4vw, 46px);
+    margin:2px 0 4px; letter-spacing:0.01em;
+    color:var(--ivory);
+  }
+  h1 em{ color:var(--gold-bright); font-style:italic; }
+  .sub{ color:var(--muted); font-size:14.5px; max-width:640px; line-height:1.55; }
+
+  .crest{
+    position:absolute; top:50px; right:6vw;
+    width:64px; height:64px;
+    border:1px solid var(--hairline);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 35% 30%, rgba(233,207,151,0.18), transparent 70%);
+  }
+  .crest svg{ width:26px; height:26px; }
+  .crest .ring{ animation: spin 22s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Controls ---------- */
+  .controls{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:22px 6vw 8px;
+  }
+  .controls .label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--muted-2);
+  }
+  select#scenario{
+    appearance:none; -webkit-appearance:none;
+    background:var(--panel-2); color:var(--ivory);
+    border:1px solid var(--hairline); border-radius:8px;
+    padding:10px 34px 10px 14px; font-size:13.5px; font-family:'Inter',sans-serif;
+    background-image: linear-gradient(45deg, transparent 50%, var(--gold) 50%), linear-gradient(135deg, var(--gold) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 12px) center;
+    background-size: 6px 6px, 6px 6px; background-repeat:no-repeat;
+    cursor:pointer;
+  }
+  button.playbtn{
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#141018; border:none; border-radius:8px;
+    padding:10px 20px; font-weight:600; font-size:13.5px;
+    cursor:pointer; letter-spacing:0.01em;
+    box-shadow:0 8px 20px -8px rgba(201,167,104,0.55);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  button.playbtn:hover{ transform:translateY(-1px); box-shadow:0 10px 24px -8px rgba(201,167,104,0.7); }
+  button.playbtn:active{ transform:translateY(0px) scale(0.98); }
+  button.resetbtn{
+    background:transparent; color:var(--muted);
+    border:1px solid var(--hairline); border-radius:8px;
+    padding:10px 16px; font-size:13px; cursor:pointer;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  button.resetbtn:hover{ color:var(--ivory); border-color:var(--gold); }
+
+  .legend{ display:flex; gap:18px; margin-left:auto; flex-wrap:wrap; }
+  .legend .item{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
+  .legend .swatch{ width:16px; height:3px; border-radius:2px; }
+
+  /* ---------- Scene ---------- */
+  .scene-wrap{
+    perspective:1900px;
+    padding:36px 6vw 90px;
+  }
+  .scene{
+    transform-style:preserve-3d;
+    transition: transform .35s cubic-bezier(.2,.7,.3,1);
+    display:flex; flex-direction:column; gap:34px;
+  }
+
+  .phase-shell{
+    position:relative;
+  }
+  .phase-head{
+    display:flex; align-items:baseline; gap:12px; margin-bottom:14px;
+    padding-left:2px;
+  }
+  .phase-index{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--gold);
+    border:1px solid var(--hairline); border-radius:20px; padding:3px 10px;
+  }
+  .phase-name{ font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:600; font-size:23px; color:var(--ivory); }
+  .phase-desc{ font-size:12.5px; color:var(--muted); margin-left:auto; }
+
+  .platform{
+    position:relative;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0) 40%),
+      linear-gradient(160deg, var(--panel), var(--bg-1));
+    border:1px solid var(--hairline);
+    border-radius:18px;
+    box-shadow: var(--shadow-deep), inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow:hidden;
+  }
+  .platform::before{
+    content:''; position:absolute; inset:0;
+    background-image: radial-gradient(rgba(233,207,151,0.05) 1px, transparent 1px);
+    background-size:26px 26px;
+    opacity:0.5; pointer-events:none;
+  }
+  .canvas{
+    position:relative;
+    width:1150px; max-width:none;
+  }
+  .canvas svg.connectors{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+
+  .node{
+    position:absolute;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    font-family:'Inter',sans-serif;
+    border-radius:12px;
+    border:1px solid rgba(214,187,132,0.22);
+    background:linear-gradient(160deg, #201c24, #16131a);
+    color:var(--ivory);
+    cursor:pointer;
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+    padding:8px 14px;
+  }
+  .node .title{ font-size:13.5px; font-weight:600; line-height:1.3; }
+  .node .tag{ font-family:'IBM Plex Mono', monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+  .node:hover{ transform:translateY(-3px); border-color:var(--gold); box-shadow:0 14px 26px -12px rgba(0,0,0,0.6); }
+
+  .node.terminal{ border-radius:100px; background:linear-gradient(160deg, #2a2318, #171310); border-color:rgba(233,207,151,0.4); }
+  .node.terminal .title{ color:var(--gold-bright); font-family:'Cormorant Garamond',serif; font-style:italic; font-size:18px; font-weight:600; }
+
+  .node.exit{ border-color:rgba(168,101,74,0.4); background:linear-gradient(160deg, #241715, #17110f); border-style:dashed; }
+  .node.exit .title{ color:var(--no-bright); }
+
+  .node.decision{
+    clip-path:polygon(11% 0, 89% 0, 100% 50%, 89% 100%, 11% 100%, 0 50%);
+    border-color:rgba(214,187,132,0.35);
+    background:linear-gradient(160deg, #221d19, #17130f);
+  }
+  .node.decision .title{ color:var(--gold-bright); }
+
+  .node.active{
+    transform:translateY(-4px) scale(1.03);
+    border-color:var(--gold-bright);
+    box-shadow:0 0 0 1px rgba(233,207,151,0.5), 0 18px 40px -12px rgba(201,167,104,0.45);
+    background:linear-gradient(160deg, #2c2417, #1c160e);
+  }
+
+  .edge-path{ fill:none; stroke-linecap:round; }
+  .edge-path.neutral{ stroke:rgba(201,167,104,0.5); stroke-width:1.6; }
+  .edge-path.yes{ stroke:rgba(95,156,133,0.55); stroke-width:1.6; }
+  .edge-path.no{ stroke:rgba(168,101,74,0.55); stroke-width:1.6; }
+  .edge-path.ambient{ stroke-dasharray:2 7; animation:dash 3.2s linear infinite; }
+  @keyframes dash{ to{ stroke-dashoffset:-90; } }
+
+  .edge-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.05em;
+    fill:var(--muted); text-transform:uppercase;
+  }
+  .edge-label.yes{ fill:var(--yes-bright); }
+  .edge-label.no{ fill:var(--no-bright); }
+
+  .pulse-dot{
+    position:absolute; width:10px; height:10px; border-radius:50%;
+    background:radial-gradient(circle, #fff6de, var(--gold-bright) 55%, transparent 75%);
+    box-shadow:0 0 14px 4px rgba(233,207,151,0.65), 0 0 30px 10px rgba(233,207,151,0.25);
+    pointer-events:none; opacity:0; z-index:5;
+  }
+
+  .bridge{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:2px 0 6px; color:var(--muted); font-size:11.5px;
+    font-family:'IBM Plex Mono', monospace; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  .bridge .line{ width:1px; height:26px; background:linear-gradient(180deg, var(--gold), transparent); position:relative; }
+  .bridge .line::after{
+    content:''; position:absolute; left:50%; top:0; width:5px; height:5px; margin-left:-2.5px;
+    background:var(--gold-bright); border-radius:50%;
+    animation:drip 2.2s ease-in-out infinite;
+    box-shadow:0 0 8px 2px rgba(233,207,151,0.6);
+  }
+  @keyframes drip{ 0%{ top:0; opacity:0; } 15%{ opacity:1; } 90%{ opacity:1; } 100%{ top:100%; opacity:0; } }
+
+  /* ---------- Detail drawer ---------- */
+  .drawer{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+    width:min(760px, 88vw);
+    background:linear-gradient(160deg, rgba(27,24,32,0.92), rgba(14,13,17,0.94));
+    backdrop-filter:blur(14px);
+    border:1px solid var(--hairline); border-radius:16px;
+    padding:16px 22px; display:flex; gap:16px; align-items:center;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7);
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+    z-index:20;
+  }
+  .drawer.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .drawer .idx{
+    font-family:'Cormorant Garamond', serif; font-style:italic; font-size:28px; color:var(--gold-bright);
+    min-width:34px;
+  }
+  .drawer .body .t{ font-weight:600; font-size:14.5px; color:var(--ivory); margin-bottom:2px; }
+  .drawer .body .d{ font-size:12.8px; color:var(--muted); line-height:1.5; }
+  .drawer .close{ margin-left:auto; color:var(--muted); cursor:pointer; font-size:18px; padding:2px 6px; }
+  .drawer .close:hover{ color:var(--ivory); }
+
+  ::-webkit-scrollbar{ height:10px; }
+  ::-webkit-scrollbar-thumb{ background:rgba(201,167,104,0.3); border-radius:6px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .edge-path.ambient{ animation:none; }
+    .bridge .line::after{ animation:none; }
+    .scene{ transition:none; }
+  }
+
+  footer{
+    text-align:center; padding:20px 6vw 50px; color:var(--muted-2); font-size:11.5px;
+    font-family:'IBM Plex Mono', monospace; letter-spacing:0.05em;
+  }
+</style>
+</head>
+<body>
+
+<header id="header">
+  <div class="eyebrow">Client Walkthrough · Automation Architecture</div>
+  <h1>Inbound Message Automation — <em>Workflow</em></h1>
+  <div class="sub">A guided view of how every inbound conversation is verified, enriched, queued, and monitored for thirty days — from first message to final resolution.</div>
+  <div class="crest">
+    <svg viewBox="0 0 100 100" class="ring"><circle cx="50" cy="50" r="42" fill="none" stroke="#c9a768" stroke-width="1" stroke-dasharray="4 6" opacity="0.7"/></svg>
+  </div>
+</header>
+
+<div class="controls">
+  <span class="label">Play scenario</span>
+  <select id="scenario">
+    <option value="verified">Verified — ID found instantly</option>
+    <option value="rejected">Rejected — not an official account</option>
+    <option value="missing">Missing fields — auto-populated</option>
+    <option value="monitoring">New conversation — monitoring loop</option>
+  </select>
+  <button class="playbtn" id="playBtn">▶ Play walkthrough</button>
+  <button class="resetbtn" id="resetBtn">Reset</button>
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:var(--yes-bright)"></span>Yes</div>
+    <div class="item"><span class="swatch" style="background:var(--no-bright)"></span>No</div>
+    <div class="item"><span class="swatch" style="background:var(--gold)"></span>Flow</div>
+  </div>
+</div>
+
+<div class="scene-wrap">
+  <div class="scene" id="scene">
+
+    <div class="phase-shell">
+      <div class="phase-head">
+        <span class="phase-index">Phase 01</span>
+        <span class="phase-name">Intake &amp; Validation</span>
+        <span class="phase-desc">Every inbound message is authenticated before it enters the pipeline</span>
+      </div>
+      <div class="platform">
+        <div class="canvas" id="canvas1" style="height:640px;">
+          <svg class="connectors" id="svg1" viewBox="0 0 1150 640" preserveAspectRatio="none"></svg>
+          <!-- nodes injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="bridge"><span>Queued conversation enters scheduler</span><div class="line"></div></div>
+
+    <div class="phase-shell">
+      <div class="phase-head">
+        <span class="phase-index">Phase 02</span>
+        <span class="phase-name">Scheduler Engine — 30-Day Monitoring</span>
+        <span class="phase-desc">Conversations are tracked and reconciled until resolved or expired</span>
+      </div>
+      <div class="platform">
+        <div class="canvas" id="canvas2" style="height:640px;">
+          <svg class="connectors" id="svg2" viewBox="0 0 1150 640" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="idx" id="drawerIdx">01</div>
+  <div class="body"><div class="t" id="drawerTitle">Node</div><div class="d" id="drawerDesc">Description</div></div>
+  <div class="close" id="drawerClose">✕</div>
+</div>
+
+<footer>Prepared for client review · Rendered live from workflow specification</footer>
+
+<script>
+/* ---------------------- Node & shape definitions ---------------------- */
+const NODES = {
+  // Phase 1
+  start:      {phase:1, x:560, y:36,  type:'terminal', title:'START', tag:'Trigger', w:150,h:52,
+               info:'The workflow begins the instant a message arrives from any WhatsApp conversation.'},
+  inbound:    {phase:1, x:560, y:140, type:'process', title:'Inbound Message Received', tag:'WhatsApp Business API', w:210,h:64,
+               info:'The platform captures the raw inbound message and hands it to the validation layer.'},
+  official:   {phase:1, x:560, y:268, type:'decision', title:'Official Rolex Account?', tag:'Sender check', w:230,h:96,
+               info:'Confirms the message originated from a verified, official Rolex-linked account before any processing continues.'},
+  endprocess: {phase:1, x:900, y:268, type:'exit', title:'End Process', tag:'Unverified sender', w:210,h:64,
+               info:'Unverified senders are stopped here — no data is queued or stored for an unofficial account.'},
+  fields:     {phase:1, x:560, y:404, type:'decision', title:'Required Custom Fields Available?', tag:'CRM field check', w:230,h:96,
+               info:'Checks whether the CRM record already holds the fields the workflow needs to proceed.'},
+  populate:   {phase:1, x:900, y:404, type:'process', title:'Populate Missing Fields', tag:'Auto-enrichment', w:210,h:64,
+               info:'Missing fields are filled automatically, then the record is re-checked before continuing.'},
+  queue:      {phase:1, x:560, y:548, type:'process', title:'Add Conversation to Queue', tag:'Ready for scheduling', w:210,h:64,
+               info:'A fully validated, fully populated conversation is added to the scheduling queue.'},
+
+  // Phase 2
+  uid:        {phase:2, x:560, y:40,  type:'decision', title:'Unique ID Available?', tag:'Conversation lookup', w:230,h:96,
+               info:'Looks up whether this conversation already has a unique tracking ID in the system.'},
+  retrieve:   {phase:2, x:260, y:168, type:'process', title:'Retrieve ID', tag:'', w:190,h:60,
+               info:'An existing ID is retrieved immediately, skipping the monitoring window entirely.'},
+  continue:   {phase:2, x:860, y:168, type:'process', title:'Continue Monitoring', tag:'Watch window', w:210,h:64,
+               info:'No ID yet — the conversation enters the 30-day monitoring window and is re-checked periodically.'},
+  update:     {phase:2, x:260, y:300, type:'process', title:'Update Inbound', tag:'', w:190,h:60,
+               info:'The inbound record is updated with the retrieved ID and latest message context.'},
+  expired:    {phase:2, x:860, y:300, type:'decision', title:'30-Day Expired?', tag:'', w:230,h:96,
+               info:'On each monitoring pass, the workflow checks whether the 30-day window has lapsed.'},
+  stop:       {phase:2, x:860, y:432, type:'process', title:'Stop Scheduler', tag:'', w:190,h:60,
+               info:'The window has expired — the scheduler stops watching this conversation.'},
+  loop:       {phase:2, x:1030,y:300, type:'process', title:'Loop Again', tag:'Re-check later', w:170,h:60,
+               info:'Still within the window — the conversation returns to monitoring for another pass.'},
+  retro:      {phase:2, x:260, y:432, type:'process', title:'Retro Tagged', tag:'', w:190,h:60,
+               info:'The conversation is retroactively tagged with its resolved ID for reporting.'},
+  end:        {phase:2, x:560, y:560, type:'terminal', title:'END', tag:'Complete', w:150,h:52,
+               info:'The conversation lifecycle closes — either resolved with an ID, or safely expired.'},
+};
+
+/* ---------------------- Edge definitions ---------------------- */
+// type: neutral | yes | no
+const EDGES = [
+  {id:'e1', from:'start',  to:'inbound',   type:'neutral', path:1},
+  {id:'e2', from:'inbound',to:'official',  type:'neutral', path:1},
+  {id:'e3', from:'official',to:'endprocess',type:'no', label:'No', path:1},
+  {id:'e4', from:'official',to:'fields',   type:'yes', label:'Yes', path:1},
+  {id:'e5', from:'fields', to:'populate',  type:'no', label:'No', path:1},
+  {id:'e6', from:'populate',to:'fields',   type:'neutral', path:1, note:'loop'},
+  {id:'e7', from:'fields', to:'queue',     type:'yes', label:'Yes', path:1},
+
+  {id:'e8', from:'uid', to:'retrieve', type:'yes', label:'Yes', path:2, style:'elbowL'},
+  {id:'e9', from:'uid', to:'continue', type:'no', label:'No', path:2, style:'elbowR'},
+  {id:'e10', from:'retrieve', to:'update', type:'neutral', path:2},
+  {id:'e11', from:'continue', to:'expired', type:'neutral', path:2},
+  {id:'e12', from:'update', to:'retro', type:'neutral', path:2},
+  {id:'e13', from:'expired', to:'loop', type:'no', label:'No', path:2},
+  {id:'e14', from:'expired', to:'stop', type:'yes', label:'Yes', path:2},
+  {id:'e15', from:'loop', to:'continue', type:'neutral', path:2, style:'loopback'},
+  {id:'e16', from:'retro', to:'end', type:'neutral', path:2, style:'elbowInL'},
+  {id:'e17', from:'stop', to:'end', type:'neutral', path:2, style:'elbowInR'},
+];
+
+/* ---------------------- Build nodes ---------------------- */
+function buildNodes(){
+  Object.entries(NODES).forEach(([id, n])=>{
+    const canvas = document.getElementById('canvas'+n.phase);
+    const el = document.createElement('div');
+    el.className = 'node ' + n.type;
+    el.id = 'node-'+id;
+    el.style.width = n.w+'px';
+    el.style.height = n.h+'px';
+    el.style.left = (n.x - n.w/2)+'px';
+    el.style.top = (n.y - n.h/2)+'px';
+    el.innerHTML = `<div class="title">${n.title}</div>` + (n.tag ? `<div class="tag">${n.tag}</div>` : '');
+    el.addEventListener('click', ()=> showDrawer(id));
+    canvas.appendChild(el);
+  });
+}
+
+/* ---------------------- Anchor helpers ---------------------- */
+function anchor(id, side){
+  const n = NODES[id];
+  const hw = n.w/2, hh = n.h/2;
+  switch(side){
+    case 'top': return {x:n.x, y:n.y-hh};
+    case 'bottom': return {x:n.x, y:n.y+hh};
+    case 'left': return {x:n.x-hw, y:n.y};
+    case 'right': return {x:n.x+hw, y:n.y};
+  }
+}
+
+function elbowV(x1,y1,x2,y2,r=16){
+  const midY = (y1+y2)/2;
+  const dir = x2>x1 ? 1 : (x2<x1 ? -1 : 0);
+  if(dir===0 || Math.abs(x2-x1) < 2){ return `M${x1},${y1} L${x2},${y2}`; }
+  return `M${x1},${y1} L${x1},${midY-r} Q${x1},${midY} ${x1+dir*r},${midY} L${x2-dir*r},${midY} Q${x2},${midY} ${x2},${midY+r} L${x2},${y2}`;
+}
+
+function edgePath(e){
+  const from = NODES[e.from], to = NODES[e.to];
+  if(e.style==='elbowL' || e.style==='elbowR'){
+    const a = anchor(e.from, e.style==='elbowL' ? 'left' : 'right');
+    a.x = from.x + (e.style==='elbowL' ? -12 : 12);
+    a.y = from.y + from.h/2;
+    const b = anchor(e.to, 'top');
+    return elbowV(a.x, a.y, b.x, b.y);
+  }
+  if(e.style==='loopback'){
+    const a = anchor(e.from,'top');
+    const b = anchor(e.to,'right');
+    return `M${a.x},${a.y} C ${a.x},${a.y-70} ${b.x+70},${b.y-30} ${b.x},${b.y}`;
+  }
+  if(e.style==='elbowInL'){
+    const a = anchor(e.from,'bottom');
+    const b = anchor(e.to,'left');
+    b.x -= 6;
+    return elbowV(a.x,a.y,b.x,b.y);
+  }
+  if(e.style==='elbowInR'){
+    const a = anchor(e.from,'bottom');
+    const b = anchor(e.to,'right');
+    b.x += 6;
+    return elbowV(a.x,a.y,b.x,b.y);
+  }
+  // default: same-x vertical, or same-y horizontal
+  if(from.x === to.x){
+    const a = anchor(e.from, to.y > from.y ? 'bottom' : 'top');
+    const b = anchor(e.to, to.y > from.y ? 'top' : 'bottom');
+    return `M${a.x},${a.y} L${b.x},${b.y}`;
+  }
+  if(from.y === to.y){
+    let a, b;
+    if(e.note==='loop'){
+      a = anchor(e.from,'left'); b = anchor(e.to,'right');
+      a.y += 8; b.y += 8;
+    } else {
+      a = anchor(e.from, to.x > from.x ? 'right' : 'left');
+      b = anchor(e.to, to.x > from.x ? 'left' : 'right');
+    }
+    return `M${a.x},${a.y} L${b.x},${b.y}`;
+  }
+  const a = anchor(e.from,'bottom'), b = anchor(e.to,'top');
+  return elbowV(a.x,a.y,b.x,b.y);
+}
+
+/* ---------------------- Build edges ---------------------- */
+function buildEdges(){
+  ['<marker id="arrow-neutral" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="rgba(201,167,104,0.8)"/></marker>',
+   '<marker id="arrow-yes" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="rgba(143,199,174,0.9)"/></marker>',
+   '<marker id="arrow-no" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="rgba(209,138,107,0.9)"/></marker>'
+  ].forEach(m=>{
+    document.getElementById('svg1').insertAdjacentHTML('beforeend', `<defs>${m}</defs>`);
+    document.getElementById('svg2').insertAdjacentHTML('beforeend', `<defs>${m}</defs>`);
+  });
+
+  EDGES.forEach(e=>{
+    const svg = document.getElementById('svg'+e.path);
+    const d = edgePath(e);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', d);
+    path.setAttribute('id', 'path-'+e.id);
+    path.setAttribute('class', 'edge-path ambient ' + e.type);
+    path.setAttribute('marker-end', `url(#arrow-${e.type==='yes'?'yes':e.type==='no'?'no':'neutral'})`);
+    svg.appendChild(path);
+
+    if(e.label){
+      const mid = path.getPointAtLength ? getMidpoint(path) : {x:0,y:0};
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x', mid.x);
+      label.setAttribute('y', mid.y - 8);
+      label.setAttribute('class', 'edge-label ' + e.type);
+      label.setAttribute('text-anchor','middle');
+      label.textContent = e.label;
+      svg.appendChild(label);
+    }
+  });
+}
+
+function getMidpoint(path){
+  const len = path.getTotalLength();
+  return path.getPointAtLength(len/2);
+}
+
+/* ---------------------- Drawer ---------------------- */
+function showDrawer(id){
+  const n = NODES[id];
+  document.getElementById('drawerTitle').textContent = n.title;
+  document.getElementById('drawerDesc').textContent = n.info;
+  document.getElementById('drawerIdx').textContent = n.type==='decision' ? '?' : (n.type==='terminal' ? '●' : '›');
+  document.getElementById('drawer').classList.add('show');
+}
+document.getElementById('drawerClose').addEventListener('click', ()=>{
+  document.getElementById('drawer').classList.remove('show');
+});
+
+/* ---------------------- Scenario playback ---------------------- */
+const SCENARIOS = {
+  verified: ['start','e1','inbound','e2','official','e4','fields','e7','queue','uid','e8','retrieve','e10','update','e12','retro','e16','end'],
+  rejected: ['start','e1','inbound','e2','official','e3','endprocess'],
+  missing:  ['start','e1','inbound','e2','official','e4','fields','e5','populate','e6','fields','e7','queue'],
+  monitoring: ['start','e1','inbound','e2','official','e4','fields','e7','queue','uid','e9','continue','e11','expired','e13','loop','e15','continue','e11','expired','e14','stop','e17','end'],
+};
+
+let playing = false;
+async function playScenario(name){
+  if(playing) return;
+  playing = true;
+  clearActive();
+  const steps = SCENARIOS[name];
+  for(const step of steps){
+    if(step.startsWith('e')){
+      await animatePulse(step);
+    } else {
+      activateNode(step);
+      await wait(650);
+    }
+  }
+  playing = false;
+}
+
+function clearActive(){
+  document.querySelectorAll('.node.active').forEach(n=>n.classList.remove('active'));
+}
+function activateNode(id){
+  clearActive();
+  const el = document.getElementById('node-'+id);
+  el.classList.add('active');
+  showDrawer(id);
+  el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+}
+
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function animatePulse(edgeId){
+  return new Promise(resolve=>{
+    const e = EDGES.find(x=>x.id===edgeId);
+    const path = document.getElementById('path-'+edgeId);
+    const canvas = document.getElementById('canvas'+e.path);
+    let dot = canvas.querySelector('.pulse-dot');
+    if(!dot){
+      dot = document.createElement('div');
+      dot.className = 'pulse-dot';
+      canvas.appendChild(dot);
+    }
+    const len = path.getTotalLength();
+    const dur = 550;
+    const t0 = performance.now();
+    dot.style.opacity = '1';
+    function frame(t){
+      const p = Math.min((t - t0)/dur, 1);
+      const pt = path.getPointAtLength(p*len);
+      dot.style.left = (pt.x - 5) + 'px';
+      dot.style.top = (pt.y - 5) + 'px';
+      if(p < 1){ requestAnimationFrame(frame); }
+      else { dot.style.opacity = '0'; resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+/* ---------------------- Init ---------------------- */
+buildNodes();
+buildEdges();
+
+document.getElementById('playBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('scenario').value;
+  playScenario(name);
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  clearActive();
+  document.getElementById('drawer').classList.remove('show');
+  playing = false;
+});
+
+/* ---------------------- Subtle 3D parallax tilt ---------------------- */
+const scene = document.getElementById('scene');
+let targetRX = 0, targetRY = 0, curRX = 0, curRY = 0;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if(!reduceMotion){
+  window.addEventListener('mousemove', (e)=>{
+    const nx = (e.clientX / window.innerWidth) - 0.5;
+    const ny = (e.clientY / window.innerHeight) - 0.5;
+    targetRY = nx * 5;
+    targetRX = -ny * 4;
+  });
+  function tick(){
+    curRX += (targetRX - curRX) * 0.06;
+    curRY += (targetRY - curRY) * 0.06;
+    scene.style.transform = `rotateX(${curRX}deg) rotateY(${curRY}deg)`;
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+</script>
+</body>
+</html>
